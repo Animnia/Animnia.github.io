@@ -1,18 +1,58 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>图片画廊</title>
+  <title>Image Gallery</title>
   <style>
-    .thumb { width: 150px; margin: 5px; }
+    #gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); 
+      gap: 10px; 
+    }
+    .thumb {
+      width: 100%; 
+      height: auto; 
+      border-radius: 8px; 
+    }
   </style>
 </head>
 <body>
   <h1>Image Gallery</h1>
   <div id="gallery">
-    <!-- 手动列出 -->
-    <img class="thumb" src="images/1.png" alt="Photo 1">
-    <!-- …也可以用脚本自动批量生成… -->
   </div>
+
+  <script>
+    const imageFolder = 'images'; 
+    const gallery = document.getElementById('gallery');
+
+    const imageNames = [
+      '1_ai.jpg'
+      ,'1_real.jpg'
+      ,'2_ai.jpg'
+      ,'2_real.jpg'
+      ,'3_ai.jpg'
+      ,'3_real.jpg'
+      ,'4_ai.jpg'
+      ,'4_real.jpg'
+      ,'5_ai.jpg'
+      ,'5_real.jpg'
+      ,'6_ai.jpg'
+      ,'6_real.jpg'
+      ,'7_ai.jpg'
+      ,'7_real.jpg'
+      ,'8_ai.jpg'
+      ,'8_real.jpg'
+      ,'9_ai.jpg'
+      ,'9_real.jpg'
+    ];
+
+    imageNames.forEach(imageName => {
+      const img = document.createElement('img');
+      img.src = `${imageFolder}/${imageName}`; 
+      img.classList.add('thumb'); 
+      gallery.appendChild(img);  
+    });
+  </script>
 </body>
 </html>
+
