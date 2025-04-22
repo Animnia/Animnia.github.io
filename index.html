@@ -5,14 +5,16 @@
   <title>Image Gallery</title>
   <style>
     #gallery {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); 
-      gap: 10px; 
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      gap: 10px;
     }
+
     .thumb {
-      width: 100%; 
-      height: auto; 
-      border-radius: 8px; 
+      width: 150px; /* Fixed width */
+      height: auto; /* Keep the aspect ratio */
+      object-fit: contain; /* Ensure the image fits within the given width */
     }
   </style>
 </head>
@@ -26,33 +28,23 @@
     const gallery = document.getElementById('gallery');
 
     const imageNames = [
-      '1_ai.jpg'
-      ,'1_real.jpg'
-      ,'2_ai.jpg'
-      ,'2_real.jpg'
-      ,'3_ai.jpg'
-      ,'3_real.jpg'
-      ,'4_ai.jpg'
-      ,'4_real.jpg'
-      ,'5_ai.jpg'
-      ,'5_real.jpg'
-      ,'6_ai.jpg'
-      ,'6_real.jpg'
-      ,'7_ai.jpg'
-      ,'7_real.jpg'
-      ,'8_ai.jpg'
-      ,'8_real.jpg'
-      ,'9_ai.jpg'
-      ,'9_real.jpg'
+      '1_ai.jpg', '1_real.jpg', '2_ai.jpg', '2_real.jpg',
+      '3_ai.jpg', '3_real.jpg', '4_ai.jpg', '4_real.jpg',
+      '5_ai.jpg', '5_real.jpg', '6_ai.jpg', '6_real.jpg',
+      '7_ai.jpg', '7_real.jpg', '8_ai.jpg', '8_real.jpg',
+      '9_ai.jpg', '9_real.jpg'
     ];
 
+    // Loop through image names and create image elements
     imageNames.forEach(imageName => {
       const img = document.createElement('img');
-      img.src = `${imageFolder}/${imageName}`; 
-      img.classList.add('thumb'); 
-      gallery.appendChild(img);  
+      img.src = `${imageFolder}/${imageName}`;
+      img.alt = imageName;
+      img.classList.add('thumb');
+      gallery.appendChild(img);
     });
   </script>
 </body>
 </html>
+
 
