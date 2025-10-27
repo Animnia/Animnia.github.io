@@ -8,8 +8,8 @@
     :root {
       --header-h: 64px;
       --gap: 8px;
-      --piece-size: 96px; /* 固定像素，确保移动端与PC视觉一致 */
-      --thumb-size: var(--piece-size); /* 托盘缩略图尺寸，默认与拼块一致 */
+      --piece-size: 96px; 
+      --thumb-size: var(--piece-size); 
     }
     * { box-sizing: border-box; }
     html, body {
@@ -76,7 +76,7 @@
       padding: var(--gap);
       background: linear-gradient(180deg, rgba(0,0,0,0.03), rgba(0,0,0,0.015));
       backdrop-filter: blur(2px);
-      -webkit-overflow-scrolling: touch; /* 移动端惯性滚动 */
+      -webkit-overflow-scrolling: touch; 
     }
     .tray-grid {
       display: grid;
@@ -110,7 +110,7 @@
       height: var(--piece-size);
       object-fit: contain;
       cursor: grab;
-      touch-action: none; /* 阻止手势滚动，便于拖动 */
+      touch-action: none; 
       user-select: none;
       -webkit-user-drag: none;
       transition: box-shadow .1s ease;
@@ -121,7 +121,6 @@
       box-shadow: 0 4px 12px rgba(0,0,0,.25);
     }
 
-    /* 移动端（触摸设备）上，适度放大左侧背景图（横屏/宽屏布局时） */
     @media (hover: none) and (pointer: coarse) {
       body.landscape .board {
         background-size: 120% auto;
@@ -129,7 +128,6 @@
       }
     }
 
-    /* 纵向（高 > 宽）布局：标题顶端居中；上半区为背景板，下半区为图片托盘 */
     body.portrait .header {
       width: 100vw;
       left: 0;
@@ -152,12 +150,8 @@
       height: 50vh;
     }
 
-    /* 当页面宽度小于 512px 时：
-       - 标题字号缩小为原来的 1/2
-       - 托盘缩略图宽高缩小为原来的 1/2（固定尺寸，不拉伸） */
     @media (max-width: 512px) {
       .header { font-size: 16px; }
-      /* 生成的拼块与托盘缩略图都缩小为原来的一半（96px -> 48px） */
       :root { --piece-size: 48px; --thumb-size: var(--piece-size); }
       .tray-grid {
         grid-template-columns: repeat(auto-fill, var(--thumb-size));
@@ -376,9 +370,7 @@
       document.addEventListener('touchcancel', up);
     }
 
-    // 根据窗口宽高设置布局模式
     function applyLayout() {
-      // 在移动端（触摸/无悬停）上，始终使用纵向布局；桌面端按宽高决定
       const isMobile = window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(hover: none)').matches;
       const isPortrait = isMobile ? true : (window.innerHeight > window.innerWidth);
       document.body.classList.toggle('portrait', isPortrait);
