@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=1280, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <title>HE Rank</title>
   <style>
     :root {
@@ -120,13 +120,35 @@
       box-shadow: 0 4px 12px rgba(0,0,0,.25);
     }
 
-    /* 移动端（触摸设备）上，适度放大左侧背景图 */
+    /* 移动端（触摸设备）上，适度放大左侧背景图（横屏/宽屏布局时） */
     @media (hover: none) and (pointer: coarse) {
-      .board {
-        /* 比桌面稍大一点，避免显得偏小；保持左侧对齐 */
+      body.landscape .board {
         background-size: 120% auto;
         background-position: left center;
       }
+    }
+
+    /* 纵向（高 > 宽）布局：标题顶端居中；上半区为背景板，下半区为图片托盘 */
+    body.portrait .header {
+      width: 100vw;
+      left: 0;
+      top: 0;
+      height: var(--header-h);
+      justify-content: center;
+    }
+    body.portrait .board {
+      top: var(--header-h);
+      left: 0;
+      width: 100vw;
+      height: calc(50vh - var(--header-h));
+      background-position: center center;
+      background-size: contain;
+    }
+    body.portrait .right-zone {
+      top: 50vh;
+      left: 0;
+      width: 100vw;
+      height: 50vh;
     }
   </style>
 </head>
@@ -340,7 +362,20 @@
       document.addEventListener('touchcancel', up);
     }
 
-    window.addEventListener('load', initTray);
+    // 根据窗口宽高设置布局模式
+    function applyLayout() {
+      const isPortrait = window.innerHeight > window.innerWidth;
+      document.body.classList.toggle('portrait', isPortrait);
+      document.body.classList.toggle('landscape', !isPortrait);
+    }
+
+    window.addEventListener('resize', applyLayout);
+    window.addEventListener('orientationchange', applyLayout);
+
+    window.addEventListener('load', () => {
+      applyLayout();
+      initTray();
+    });
   </script>
 </body>
 </html>
