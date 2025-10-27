@@ -157,7 +157,8 @@
        - 托盘缩略图宽高缩小为原来的 1/2（固定尺寸，不拉伸） */
     @media (max-width: 512px) {
       .header { font-size: 16px; }
-      :root { --thumb-size: calc(var(--piece-size) / 2); }
+      /* 生成的拼块与托盘缩略图都缩小为原来的一半（96px -> 48px） */
+      :root { --piece-size: 48px; --thumb-size: var(--piece-size); }
       .tray-grid {
         grid-template-columns: repeat(auto-fill, var(--thumb-size));
         grid-auto-rows: var(--thumb-size);
