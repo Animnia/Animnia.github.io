@@ -2,23 +2,22 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=1280, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>HE Rank</title>
   <style>
     :root {
       --header-h: 64px;
       --gap: 8px;
-      --piece-size: min(10vw, 96px); /* 初始显示大小，可按需调 */
+      --piece-size: 96px; /* 固定像素，确保移动端与PC视觉一致 */
     }
     * { box-sizing: border-box; }
     html, body {
       height: 100%;
       margin: 0;
-      overflow: hidden; /* 页面为全屏画布，无需滚动 */
+      overflow: hidden;
     }
     body { user-select: none; background: #fff; }
 
-    /* 标题：居于左侧 3/4 区域的上方正中，不阻挡鼠标事件 */
     .header {
       position: fixed;
       left: 0;
@@ -32,11 +31,10 @@
       font-weight: 800;
       color: #1f1f1f;
       text-shadow: 0 2px 6px rgba(0,0,0,0.15);
-      pointer-events: none; /* 避免遮挡拖拽 */
+      pointer-events: none;
       z-index: 1000;
     }
 
-    /* 画布区域（标题下方） */
     .canvas {
       position: fixed;
       top: 0;
@@ -46,7 +44,6 @@
       overflow: hidden;
     }
 
-    /* 左侧 3/4 背景板：固定在视口内且不被标题遮挡 */
     .board {
       position: fixed;
       top: var(--header-h);
@@ -55,14 +52,12 @@
       height: calc(100vh - var(--header-h));
       z-index: 0;
       background-color: #f7f7f7;
-      /* 背景图左侧对齐，等比缩放不裁剪 */
       background-image: url('./images/board.png');
       background-repeat: no-repeat;
       background-position: left center;
       background-size: contain;
     }
 
-    /* 右侧 1/4 初始摆放区域（仅作视觉参考，空白即可） */
     .right-zone {
       position: fixed;
       top: 0;
@@ -73,7 +68,6 @@
       background: transparent;
     }
 
-    /* 图片托盘（可滚动容器） */
     .tray {
       position: absolute;
       inset: 0;
@@ -81,6 +75,7 @@
       padding: var(--gap);
       background: linear-gradient(180deg, rgba(0,0,0,0.03), rgba(0,0,0,0.015));
       backdrop-filter: blur(2px);
+      -webkit-overflow-scrolling: touch; /* 移动端惯性滚动 */
     }
     .tray-grid {
       display: grid;
@@ -101,11 +96,10 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     }
 
-    /* 拖拽层，承载所有图片：层本身不拦截事件，事件只落到图片上 */
     .pieces-layer {
       position: absolute;
       inset: 0;
-      z-index: 10; /* 在背景之上、标题之下 */
+      z-index: 10; 
       pointer-events: none;
     }
 
@@ -119,11 +113,20 @@
       user-select: none;
       -webkit-user-drag: none;
       transition: box-shadow .1s ease;
-      pointer-events: auto; /* 允许与图片交互 */
+      pointer-events: auto; 
     }
     .piece:active {
       cursor: grabbing;
       box-shadow: 0 4px 12px rgba(0,0,0,.25);
+    }
+
+    /* 移动端（触摸设备）上，适度放大左侧背景图 */
+    @media (hover: none) and (pointer: coarse) {
+      .board {
+        /* 比桌面稍大一点，避免显得偏小；保持左侧对齐 */
+        background-size: 120% auto;
+        background-position: left center;
+      }
     }
   </style>
 </head>
@@ -167,44 +170,59 @@
       '冢本秀一.png',
     ];
 
-    const canvas = document.getElementById('canvas');
-    const layer = document.getElementById('piecesLayer');
-    const trayGrid = document.getElementById('trayGrid');
-    let zTop = 1;
+  const canvas = document.getElementById('canvas');
+  const layer = document.getElementById('piecesLayer');
+  const trayGrid = document.getElementById('trayGrid');
+  let zTop = 1;
+  const usedPieces = new Set(); // 已生成的拼块名集合，确保只生成一次
 
-    // 初始化右侧托盘网格
+    function getDisplayName(fileName) {
+      return fileName.replace(/\.[^/.]+$/,'');
+    }
+
     function initTray() {
       trayGrid.innerHTML = '';
       pieceFiles.forEach((name) => {
         const thumb = document.createElement('img');
         thumb.className = 'thumb';
-        thumb.alt = name;
+        const label = getDisplayName(name);
+        thumb.alt = label;
+        thumb.title = label; 
+        thumb.setAttribute('aria-label', label);
         thumb.src = `./images/${name}`;
         thumb.draggable = false;
 
-        // 从托盘按下即生成可拖拽的浮动拼块
+        const spawnOnce = (clientX, clientY) => {
+          if (usedPieces.has(name)) return;
+          usedPieces.add(name);
+          const piece = createFloatingPiece(name, clientX, clientY);
+          startDragWithPointer(piece, clientX, clientY);
+          thumb.alt = '';
+          thumb.src = `./images/empty.png`;
+          thumb.style.cursor = 'default';
+        };
+
         thumb.addEventListener('mousedown', (e) => {
           if (e.button !== 0) return;
           e.preventDefault();
-          const piece = createFloatingPiece(name, e.clientX, e.clientY);
-          startDragWithPointer(piece, e.clientX, e.clientY);
+          spawnOnce(e.clientX, e.clientY);
         });
         thumb.addEventListener('touchstart', (e) => {
           const t = e.touches[0];
-          const piece = createFloatingPiece(name, t.clientX, t.clientY);
-          // 触摸拖动
-          startDragWithPointer(piece, t.clientX, t.clientY);
+          spawnOnce(t.clientX, t.clientY);
         }, { passive: true });
 
         trayGrid.appendChild(thumb);
       });
     }
 
-    // 创建一个在画布上的浮动拼块
     function createFloatingPiece(name, clientX, clientY) {
       const img = document.createElement('img');
       img.className = 'piece';
-      img.alt = name;
+      const label = getDisplayName(name);
+      img.alt = label;
+      img.title = label;
+      img.setAttribute('aria-label', label);
       img.src = `./images/${name}`;
       img.draggable = false;
       img.style.zIndex = (++zTop).toString();
@@ -253,7 +271,6 @@
         const pieceSize = el.getBoundingClientRect().width;
         let x = clientX - layerRect.left - offsetX;
         let y = clientY - layerRect.top - offsetY;
-        // 限制在可视区域内，避免完全拖出屏幕
         x = clamp(x, -pieceSize * 0.5, layerRect.width - pieceSize * 0.5);
         y = clamp(y, -pieceSize * 0.5, layerRect.height - pieceSize * 0.5);
         el.style.left = `${x}px`;
@@ -262,9 +279,8 @@
 
       const onUp = () => { dragging = false; };
 
-      // 鼠标事件
       el.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return; // 仅左键
+        if (e.button !== 0) return;
         e.preventDefault();
         onDown(e.clientX, e.clientY);
         const move = (ev) => onMove(ev.clientX, ev.clientY);
@@ -277,7 +293,6 @@
         document.addEventListener('mouseup', up);
       });
 
-      // 触摸事件（可选）
       el.addEventListener('touchstart', (e) => {
         const t = e.touches[0];
         onDown(t.clientX, t.clientY);
@@ -290,7 +305,6 @@
       el.addEventListener('touchcancel', onUp);
     }
 
-    // 用给定指针位置立即开始拖拽指定元素
     function startDragWithPointer(el, clientX, clientY) {
       let dragging = true;
       const layerRect = layer.getBoundingClientRect();
@@ -326,7 +340,6 @@
       document.addEventListener('touchcancel', up);
     }
 
-    // 初始化托盘
     window.addEventListener('load', initTray);
   </script>
 </body>
