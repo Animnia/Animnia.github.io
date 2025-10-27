@@ -364,7 +364,9 @@
 
     // 根据窗口宽高设置布局模式
     function applyLayout() {
-      const isPortrait = window.innerHeight > window.innerWidth;
+      // 在移动端（触摸/无悬停）上，始终使用纵向布局；桌面端按宽高决定
+      const isMobile = window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(hover: none)').matches;
+      const isPortrait = isMobile ? true : (window.innerHeight > window.innerWidth);
       document.body.classList.toggle('portrait', isPortrait);
       document.body.classList.toggle('landscape', !isPortrait);
     }
