@@ -1,11 +1,333 @@
-<!DOCTYPE html>
-<html lang="zh-cn">
+<!doctype html>
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HE Rank</title>
+  <style>
+    :root {
+      --header-h: 64px;
+      --gap: 8px;
+      --piece-size: min(10vw, 96px); /* 初始显示大小，可按需调 */
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden; /* 页面为全屏画布，无需滚动 */
+    }
+    body { user-select: none; background: #fff; }
+
+    /* 标题：居于左侧 3/4 区域的上方正中，不阻挡鼠标事件 */
+    .header {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 75vw;
+      height: var(--header-h);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      font-weight: 800;
+      color: #1f1f1f;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      pointer-events: none; /* 避免遮挡拖拽 */
+      z-index: 1000;
+    }
+
+    /* 画布区域（标题下方） */
+    .canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 左侧 3/4 背景板：固定在视口内且不被标题遮挡 */
+    .board {
+      position: fixed;
+      top: var(--header-h);
+      left: 0;
+      width: 75vw;
+      height: calc(100vh - var(--header-h));
+      z-index: 0;
+      background-color: #f7f7f7;
+      /* 背景图左侧对齐，等比缩放不裁剪 */
+      background-image: url('./images/board.png');
+      background-repeat: no-repeat;
+      background-position: left center;
+      background-size: contain;
+    }
+
+    /* 右侧 1/4 初始摆放区域（仅作视觉参考，空白即可） */
+    .right-zone {
+      position: fixed;
+      top: 0;
+      left: 75vw;
+      width: 25vw;
+      height: 100vh;
+      z-index: 1;
+      background: transparent;
+    }
+
+    /* 图片托盘（可滚动容器） */
+    .tray {
+      position: absolute;
+      inset: 0;
+      overflow: auto;
+      padding: var(--gap);
+      background: linear-gradient(180deg, rgba(0,0,0,0.03), rgba(0,0,0,0.015));
+      backdrop-filter: blur(2px);
+    }
+    .tray-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(var(--piece-size), 1fr));
+      grid-auto-rows: var(--piece-size);
+      gap: var(--gap);
+      align-content: start;
+    }
+    .thumb {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-drag: none;
+      background: #fff;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    /* 拖拽层，承载所有图片：层本身不拦截事件，事件只落到图片上 */
+    .pieces-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 10; /* 在背景之上、标题之下 */
+      pointer-events: none;
+    }
+
+    .piece {
+      position: absolute;
+      width: var(--piece-size);
+      height: var(--piece-size);
+      object-fit: contain;
+      cursor: grab;
+      touch-action: none; /* 阻止手势滚动，便于拖动 */
+      user-select: none;
+      -webkit-user-drag: none;
+      transition: box-shadow .1s ease;
+      pointer-events: auto; /* 允许与图片交互 */
+    }
+    .piece:active {
+      cursor: grabbing;
+      box-shadow: 0 4px 12px rgba(0,0,0,.25);
+    }
+  </style>
 </head>
 <body>
-  <h1>欢迎来到 HE Rank 页面</h1>
-  <p>这里是 HE Rank 的内容。</p>
+  <div class="header">《吹响吧！上低音号》角色实力排行</div>
+
+  <div class="canvas" id="canvas">
+    <div class="board" aria-hidden="true"></div>
+    <div class="right-zone" aria-label="图片托盘">
+      <div class="tray">
+        <div class="tray-grid" id="trayGrid" aria-label="可拖拽图片列表"></div>
+      </div>
+    </div>
+    <div class="pieces-layer" id="piecesLayer" aria-label="可拖拽图片层"></div>
+  </div>
+
+  <script>
+    const pieceFiles = [
+      '川岛绿辉.png',
+      '釜屋燕.png',
+      '高坂丽奈.png',
+      '高久智惠理.png',
+      '黑江真由.png',
+      '后藤卓也.png',
+      '黄前久美子.png',
+      '吉川优子.png',
+      '加藤叶月.png',
+      '剑崎梨梨花.png',
+      '堺万纱子.png',
+      '井上顺菜.png',
+      '久石奏.png',
+      '铠冢霙.png',
+      '伞木希美.png',
+      '田中明日香.png',
+      '小笠原晴香.png',
+      '月永求.png',
+      '斋藤葵.png',
+      '长濑梨子.png',
+      '中川夏纪.png',
+      '中世古香织.png',
+      '冢本秀一.png',
+    ];
+
+    const canvas = document.getElementById('canvas');
+    const layer = document.getElementById('piecesLayer');
+    const trayGrid = document.getElementById('trayGrid');
+    let zTop = 1;
+
+    // 初始化右侧托盘网格
+    function initTray() {
+      trayGrid.innerHTML = '';
+      pieceFiles.forEach((name) => {
+        const thumb = document.createElement('img');
+        thumb.className = 'thumb';
+        thumb.alt = name;
+        thumb.src = `./images/${name}`;
+        thumb.draggable = false;
+
+        // 从托盘按下即生成可拖拽的浮动拼块
+        thumb.addEventListener('mousedown', (e) => {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          const piece = createFloatingPiece(name, e.clientX, e.clientY);
+          startDragWithPointer(piece, e.clientX, e.clientY);
+        });
+        thumb.addEventListener('touchstart', (e) => {
+          const t = e.touches[0];
+          const piece = createFloatingPiece(name, t.clientX, t.clientY);
+          // 触摸拖动
+          startDragWithPointer(piece, t.clientX, t.clientY);
+        }, { passive: true });
+
+        trayGrid.appendChild(thumb);
+      });
+    }
+
+    // 创建一个在画布上的浮动拼块
+    function createFloatingPiece(name, clientX, clientY) {
+      const img = document.createElement('img');
+      img.className = 'piece';
+      img.alt = name;
+      img.src = `./images/${name}`;
+      img.draggable = false;
+      img.style.zIndex = (++zTop).toString();
+
+      const layerRect = layer.getBoundingClientRect();
+      const size = getPiecePixelSize();
+      const x = clientX - layerRect.left - size / 2;
+      const y = clientY - layerRect.top - size / 2;
+      img.style.left = `${x}px`;
+      img.style.top = `${y}px`;
+
+      layer.appendChild(img);
+      makeDraggable(img);
+      return img;
+    }
+
+    function getPiecePixelSize() {
+      const tmp = document.createElement('div');
+      tmp.style.position = 'absolute';
+      tmp.style.visibility = 'hidden';
+      tmp.style.width = getComputedStyle(document.documentElement).getPropertyValue('--piece-size');
+      document.body.appendChild(tmp);
+      const size = tmp.getBoundingClientRect().width;
+      tmp.remove();
+      return size || 80;
+    }
+
+    function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
+
+    function makeDraggable(el) {
+      let dragging = false;
+      let offsetX = 0, offsetY = 0;
+      const onDown = (clientX, clientY) => {
+        dragging = true;
+        const layerRect = layer.getBoundingClientRect();
+        const left = parseFloat(el.style.left || '0');
+        const top = parseFloat(el.style.top || '0');
+        offsetX = clientX - (layerRect.left + left);
+        offsetY = clientY - (layerRect.top + top);
+        el.style.zIndex = (++zTop).toString();
+      };
+
+      const onMove = (clientX, clientY) => {
+        if (!dragging) return;
+        const layerRect = layer.getBoundingClientRect();
+        const pieceSize = el.getBoundingClientRect().width;
+        let x = clientX - layerRect.left - offsetX;
+        let y = clientY - layerRect.top - offsetY;
+        // 限制在可视区域内，避免完全拖出屏幕
+        x = clamp(x, -pieceSize * 0.5, layerRect.width - pieceSize * 0.5);
+        y = clamp(y, -pieceSize * 0.5, layerRect.height - pieceSize * 0.5);
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+      };
+
+      const onUp = () => { dragging = false; };
+
+      // 鼠标事件
+      el.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return; // 仅左键
+        e.preventDefault();
+        onDown(e.clientX, e.clientY);
+        const move = (ev) => onMove(ev.clientX, ev.clientY);
+        const up = () => {
+          onUp();
+          document.removeEventListener('mousemove', move);
+          document.removeEventListener('mouseup', up);
+        };
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+      });
+
+      // 触摸事件（可选）
+      el.addEventListener('touchstart', (e) => {
+        const t = e.touches[0];
+        onDown(t.clientX, t.clientY);
+      }, { passive: true });
+      el.addEventListener('touchmove', (e) => {
+        const t = e.touches[0];
+        onMove(t.clientX, t.clientY);
+      }, { passive: true });
+      el.addEventListener('touchend', onUp);
+      el.addEventListener('touchcancel', onUp);
+    }
+
+    // 用给定指针位置立即开始拖拽指定元素
+    function startDragWithPointer(el, clientX, clientY) {
+      let dragging = true;
+      const layerRect = layer.getBoundingClientRect();
+      const left = parseFloat(el.style.left || '0');
+      const top = parseFloat(el.style.top || '0');
+      let offsetX = clientX - (layerRect.left + left);
+      let offsetY = clientY - (layerRect.top + top);
+      el.style.zIndex = (++zTop).toString();
+
+      const move = (ev) => {
+        if (!dragging) return;
+        const e = ev.touches ? ev.touches[0] : ev;
+        const pieceSize = el.getBoundingClientRect().width;
+        let x = e.clientX - layerRect.left - offsetX;
+        let y = e.clientY - layerRect.top - offsetY;
+        x = clamp(x, -pieceSize * 0.5, layerRect.width - pieceSize * 0.5);
+        y = clamp(y, -pieceSize * 0.5, layerRect.height - pieceSize * 0.5);
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+      };
+      const up = () => {
+        dragging = false;
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+        document.removeEventListener('touchmove', move);
+        document.removeEventListener('touchend', up);
+        document.removeEventListener('touchcancel', up);
+      };
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+      document.addEventListener('touchmove', move, { passive: true });
+      document.addEventListener('touchend', up);
+      document.addEventListener('touchcancel', up);
+    }
+
+    // 初始化托盘
+    window.addEventListener('load', initTray);
+  </script>
 </body>
 </html>
