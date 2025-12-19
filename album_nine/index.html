@@ -307,6 +307,67 @@
             color: #666;
         }
 
+        /* 上传按钮 */
+        .upload-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .upload-btn {
+            flex: 1;
+            padding: 12px;
+            background: #f0f0f0;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            color: #666;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .upload-btn:hover {
+            border-color: #e94560;
+            background: #fff0f5;
+            color: #e94560;
+        }
+
+        .upload-btn input {
+            display: none;
+        }
+
+        /* 搜索源标签 */
+        .source-tag {
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            font-weight: normal;
+        }
+
+        .source-itunes {
+            background: #fc3c44;
+            color: white;
+        }
+
+        .source-deezer {
+            background: #a238ff;
+            color: white;
+        }
+
+        .source-musicbrainz {
+            background: #eb743b;
+            color: white;
+        }
+
+        .source-local {
+            background: #4caf50;
+            color: white;
+        }
+
         /* 响应式 */
         @media (max-width: 600px) {
             .grid-container {
@@ -419,12 +480,18 @@
                 <h2 id="modalTitle">搜索专辑</h2>
                 <button class="close-btn" onclick="closeModal()">&times;</button>
             </div>
+            <div class="upload-section">
+                <label class="upload-btn">
+                    📁 上传本地封面
+                    <input type="file" id="fileInput" accept="image/*" onchange="handleFileUpload(event)">
+                </label>
+            </div>
             <div class="search-box">
                 <input type="text" id="searchInput" placeholder="输入专辑或艺术家名称..." onkeypress="handleKeyPress(event)">
                 <button onclick="searchAlbums()">搜索</button>
             </div>
             <div class="search-results" id="searchResults">
-                <p class="no-results">输入关键词开始搜索专辑</p>
+                <p class="no-results">上传本地图片或输入关键词搜索专辑</p>
             </div>
         </div>
     </div>
@@ -449,7 +516,21 @@
         function closeModal() {
             document.getElementById('searchModal').classList.remove('active');
             document.getElementById('searchInput').value = '';
-            document.getElementById('searchResults').innerHTML = '<p class="no-results">输入关键词开始搜索专辑</p>';
+            document.getElementById('fileInput').value = '';
+            document.getElementById('searchResults').innerHTML = '<p class="no-results">上传本地图片或输入关键词搜索专辑</p>';
+        }
+
+        // 处理文件上传
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imageUrl = e.target.result;
+                selectAlbum(imageUrl, '本地上传', '自定义封面', true);
+            };
+            reader.readAsDataURL(file);
         }
 
         // 按回车搜索
@@ -459,40 +540,49 @@
             }
         }
 
-        // 搜索专辑 - 使用 iTunes Search API
+        // 搜索专辑 - 使用多个搜索源
         async function searchAlbums() {
             const query = document.getElementById('searchInput').value.trim();
             if (!query) return;
 
             const resultsContainer = document.getElementById('searchResults');
-            resultsContainer.innerHTML = '<p class="loading">🔍 搜索中...</p>';
+            resultsContainer.innerHTML = '<p class="loading">🔍 正在从多个来源搜索...</p>';
+
+            const allResults = [];
+
+            // 并行请求多个API
+            const searches = [
+                searchItunes(query),
+                searchDeezer(query),
+                searchMusicBrainz(query)
+            ];
 
             try {
-                // 使用 iTunes Search API（免费，无需注册）
-                const response = await fetch(
-                    `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=album&limit=10`
-                );
-                const data = await response.json();
+                const results = await Promise.allSettled(searches);
+                results.forEach(result => {
+                    if (result.status === 'fulfilled' && result.value) {
+                        allResults.push(...result.value);
+                    }
+                });
 
-                if (data.results.length === 0) {
-                    resultsContainer.innerHTML = '<p class="no-results">未找到相关专辑，请尝试其他关键词</p>';
+                if (allResults.length === 0) {
+                    resultsContainer.innerHTML = '<p class="no-results">未找到相关专辑，请尝试其他关键词或上传本地图片</p>';
                     return;
                 }
 
                 resultsContainer.innerHTML = '';
-                data.results.forEach(album => {
+                allResults.forEach(album => {
                     const item = document.createElement('div');
                     item.className = 'result-item';
-                    // 获取高清封面（将100x100替换为600x600）
-                    const coverUrl = album.artworkUrl100.replace('100x100', '600x600');
+                    const sourceClass = `source-${album.source.toLowerCase()}`;
                     item.innerHTML = `
-                        <img src="${album.artworkUrl100}" alt="${album.collectionName}">
+                        <img src="${album.thumbnail}" alt="${album.name}">
                         <div class="result-info">
-                            <h4>${album.collectionName}</h4>
-                            <p>${album.artistName} · ${new Date(album.releaseDate).getFullYear()}</p>
+                            <h4>${album.name}<span class="source-tag ${sourceClass}">${album.source}</span></h4>
+                            <p>${album.artist}${album.year ? ' · ' + album.year : ''}</p>
                         </div>
                     `;
-                    item.addEventListener('click', () => selectAlbum(coverUrl, album.collectionName, album.artistName));
+                    item.addEventListener('click', () => selectAlbum(album.coverUrl, album.name, album.artist));
                     resultsContainer.appendChild(item);
                 });
             } catch (error) {
@@ -501,17 +591,96 @@
             }
         }
 
+        // iTunes 搜索
+        async function searchItunes(query) {
+            try {
+                const response = await fetch(
+                    `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=album&limit=8`
+                );
+                const data = await response.json();
+                return data.results.map(album => ({
+                    name: album.collectionName,
+                    artist: album.artistName,
+                    year: album.releaseDate ? new Date(album.releaseDate).getFullYear() : null,
+                    thumbnail: album.artworkUrl100,
+                    coverUrl: album.artworkUrl100.replace('100x100', '600x600'),
+                    source: 'iTunes'
+                }));
+            } catch (e) {
+                console.error('iTunes搜索失败:', e);
+                return [];
+            }
+        }
+
+        // Deezer 搜索
+        async function searchDeezer(query) {
+            try {
+                const response = await fetch(
+                    `https://corsproxy.io/?${encodeURIComponent(`https://api.deezer.com/search/album?q=${encodeURIComponent(query)}&limit=8`)}`
+                );
+                const data = await response.json();
+                if (!data.data) return [];
+                return data.data.map(album => ({
+                    name: album.title,
+                    artist: album.artist.name,
+                    year: null,
+                    thumbnail: album.cover_medium,
+                    coverUrl: album.cover_xl || album.cover_big,
+                    source: 'Deezer'
+                }));
+            } catch (e) {
+                console.error('Deezer搜索失败:', e);
+                return [];
+            }
+        }
+
+        // MusicBrainz 搜索（支持日本音乐）
+        async function searchMusicBrainz(query) {
+            try {
+                const response = await fetch(
+                    `https://musicbrainz.org/ws/2/release-group?query=${encodeURIComponent(query)}&type=album&limit=8&fmt=json`,
+                    {
+                        headers: {
+                            'User-Agent': 'AlbumNineGrid/1.0 (https://animnia.github.io)'
+                        }
+                    }
+                );
+                const data = await response.json();
+                if (!data['release-groups']) return [];
+                
+                return data['release-groups'].map(album => {
+                    const mbid = album.id;
+                    const artist = album['artist-credit']?.[0]?.name || '未知艺术家';
+                    const year = album['first-release-date']?.substring(0, 4) || null;
+                    // Cover Art Archive 提供封面
+                    const coverUrl = `https://coverartarchive.org/release-group/${mbid}/front-500`;
+                    const thumbnail = `https://coverartarchive.org/release-group/${mbid}/front-250`;
+                    return {
+                        name: album.title,
+                        artist: artist,
+                        year: year,
+                        thumbnail: thumbnail,
+                        coverUrl: coverUrl,
+                        source: 'MusicBrainz'
+                    };
+                });
+            } catch (e) {
+                console.error('MusicBrainz搜索失败:', e);
+                return [];
+            }
+        }
+
         // 选择专辑
-        function selectAlbum(coverUrl, albumName, artistName) {
+        function selectAlbum(coverUrl, albumName, artistName, isLocal = false) {
             const box = document.querySelector(`.album-box[data-index="${currentBoxIndex}"]`);
             box.innerHTML = `
-                <img src="${coverUrl}" alt="${albumName}" title="${albumName} - ${artistName}">
+                <img src="${coverUrl}" alt="${albumName}" title="${albumName} - ${artistName}" ${isLocal ? '' : 'crossorigin="anonymous"'}>
                 <button class="remove-btn" onclick="removeAlbum(${currentBoxIndex})">&times;</button>
             `;
             box.classList.add('has-album');
             
             // 保存数据
-            albumData[currentBoxIndex] = { coverUrl, albumName, artistName };
+            albumData[currentBoxIndex] = { coverUrl, albumName, artistName, isLocal };
             
             closeModal();
         }
