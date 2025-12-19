@@ -339,35 +339,6 @@
             display: none;
         }
 
-        /* 搜索源标签 */
-        .source-tag {
-            font-size: 0.65rem;
-            padding: 2px 6px;
-            border-radius: 4px;
-            margin-left: 8px;
-            font-weight: normal;
-        }
-
-        .source-itunes {
-            background: #fc3c44;
-            color: white;
-        }
-
-        .source-deezer {
-            background: #a238ff;
-            color: white;
-        }
-
-        .source-musicbrainz {
-            background: #eb743b;
-            color: white;
-        }
-
-        .source-local {
-            background: #4caf50;
-            color: white;
-        }
-
         /* 响应式 */
         @media (max-width: 600px) {
             .grid-container {
@@ -574,11 +545,10 @@
                 allResults.forEach(album => {
                     const item = document.createElement('div');
                     item.className = 'result-item';
-                    const sourceClass = `source-${album.source.toLowerCase()}`;
                     item.innerHTML = `
                         <img src="${album.thumbnail}" alt="${album.name}">
                         <div class="result-info">
-                            <h4>${album.name}<span class="source-tag ${sourceClass}">${album.source}</span></h4>
+                            <h4>${album.name}</h4>
                             <p>${album.artist}${album.year ? ' · ' + album.year : ''}</p>
                         </div>
                     `;
@@ -648,13 +618,14 @@
                 const data = await response.json();
                 if (!data['release-groups']) return [];
                 
+                // 使用 wsrv.nl 图片代理访问 Cover Art Archive（国内可用）
                 return data['release-groups'].map(album => {
                     const mbid = album.id;
                     const artist = album['artist-credit']?.[0]?.name || '未知艺术家';
                     const year = album['first-release-date']?.substring(0, 4) || null;
-                    // Cover Art Archive 提供封面
-                    const coverUrl = `https://coverartarchive.org/release-group/${mbid}/front-500`;
-                    const thumbnail = `https://coverartarchive.org/release-group/${mbid}/front-250`;
+                    // wsrv.nl 图片代理
+                    const coverUrl = `https://wsrv.nl/?url=coverartarchive.org/release-group/${mbid}/front-500`;
+                    const thumbnail = `https://wsrv.nl/?url=coverartarchive.org/release-group/${mbid}/front-250`;
                     return {
                         name: album.title,
                         artist: artist,
