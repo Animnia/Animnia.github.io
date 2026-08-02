@@ -17,6 +17,11 @@ Create your annual music album 3x3 grid share image. Supports searching for albu
 `https://animnia.github.io/he_rank/`
 Character ranking tool for "Hibike! Euphonium".
 
+### [Glitch Lens](https://animnia.github.io/glitch-lens/)
+
+`https://animnia.github.io/glitch-lens/`
+Experimental glitch-token fingerprint scanner for LLM APIs — identify which vendor family actually serves an endpoint or agent session. Bilingual (EN/中文) showcase page.
+
 ---
 
 *2025.12.19*
